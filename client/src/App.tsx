@@ -300,7 +300,6 @@ function App() {
               <WordSelector
                 wordOptions={wordOptions}
                 onSelect={(w) => { setCurrentWord(w); setWordOptions([]); }}
-                drawTime={drawTime}
               />
             )}
 
