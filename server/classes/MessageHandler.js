@@ -28,7 +28,22 @@ class MessageHandler {
 
   // ─── Helpers ───────────────────────────────────────────────
 
-  getRoomBySocket(socket) {
+  getRoomBySocket(socket, roomId = null) {
+    if (roomId) {
+      const room = this.rooms.get(roomId);
+      if (room && room.getPlayer(socket.id)) {
+        return room;
+      }
+      return null;
+    }
+
+    if (socket.data.roomId) {
+      const room = this.rooms.get(socket.data.roomId);
+      if (room && room.getPlayer(socket.id)) {
+        return room;
+      }
+    }
+
     for (const room of this.rooms.values()) {
       if (room.getPlayer(socket.id)) {
         return room;
@@ -37,14 +52,92 @@ class MessageHandler {
     return null;
   }
 
+  clearRoomTimers(room) {
+    if (room.game && room.game.timer) {
+      clearInterval(room.game.timer);
+      room.game.timer = null;
+    }
+    if (room._wordSelectionTimeout) {
+      clearTimeout(room._wordSelectionTimeout);
+      room._wordSelectionTimeout = null;
+    }
+    if (room._wordSelectionCountdown) {
+      clearInterval(room._wordSelectionCountdown);
+      room._wordSelectionCountdown = null;
+    }
+  }
+
+  leaveCurrentRoom(socket, nextRoomId = null) {
+    const currentRoom = this.getRoomBySocket(socket);
+    if (!currentRoom || currentRoom.id === nextRoomId) return;
+
+    this.removeSocketFromRoom(socket, currentRoom);
+  }
+
+  removeSocketFromRoom(socket, room) {
+    const removed = room.removePlayer(socket.id);
+    socket.leave(room.id);
+
+    if (socket.data.roomId === room.id) {
+      socket.data.roomId = null;
+    }
+
+    if (!removed) return null;
+
+    // If room is empty, delete it
+    if (room.players.length === 0) {
+      this.clearRoomTimers(room);
+      room.game = null;
+      this.rooms.delete(room.id);
+      console.log(`Room ${room.id} deleted (empty)`);
+      return removed;
+    }
+
+    // If removed player was the host, assign new host
+    if (room.hostId === socket.id) {
+      room.hostId = room.players[0].id;
+    }
+
+    room.broadcast(this.io, "player_left", {
+      playerId: socket.id,
+      hostId: room.hostId,
+      players: room.players.map((p) => p.toJSON()),
+      spectators: room.spectators.map((p) => p.toJSON()),
+    });
+
+    // If game is in progress and not enough players, end the game
+    if (
+      room.game &&
+      (room.phase === "drawing" ||
+        room.phase === "word_selection" ||
+        room.phase === "round_end")
+    ) {
+      if (room.players.length < 2) {
+        this.endGame(room);
+      } else if (
+        removed.isDrawing &&
+        (room.phase === "drawing" || room.phase === "word_selection")
+      ) {
+        // If the drawer left, end the current round and move on
+        this.clearRoomTimers(room);
+        this.endRound(room);
+      }
+    }
+
+    return removed;
+  }
+
   // ─── Room Lifecycle ────────────────────────────────────────
 
   onCreateRoom(socket, data) {
+    this.leaveCurrentRoom(socket);
+
     const player = new Player(socket.id, data.name);
     const room = new Room(socket.id, data.settings || {});
     room.addPlayer(player);
     this.rooms.set(room.id, room);
     socket.join(room.id);
+    socket.data.roomId = room.id;
     socket.emit("room_created", room.getState());
     console.log(`Room ${room.id} created by ${data.name}`);
   }
@@ -59,31 +152,47 @@ class MessageHandler {
 
     const player = new Player(socket.id, data.name);
 
+    if (room.bannedIds.includes(player.id)) {
+      socket.emit("error", { message: "You are banned" });
+      return;
+    }
+
+    const existingPlayer = room.getPlayer(socket.id);
+    if (existingPlayer) {
+      socket.join(room.id);
+      socket.data.roomId = room.id;
+      socket.emit("room_joined", room.getState());
+      return;
+    }
+
+    this.leaveCurrentRoom(socket, room.id);
+
     // If game is already in progress, add as spectator directly
     if (room.phase !== "lobby") {
       player.isSpectator = true;
       room.spectators.push(player);
       socket.join(room.id);
+      socket.data.roomId = room.id;
       socket.emit("room_joined", room.getState());
       room.broadcast(this.io, "player_joined", {
         player: player.toJSON(),
+        hostId: room.hostId,
         players: room.players.map((p) => p.toJSON()),
+        spectators: room.spectators.map((p) => p.toJSON()),
       });
       return;
     }
 
-    const result = room.addPlayer(player);
-
-    if (result.error === "banned") {
-      socket.emit("error", { message: "You are banned" });
-      return;
-    }
+    room.addPlayer(player);
 
     socket.join(room.id);
+    socket.data.roomId = room.id;
     socket.emit("room_joined", room.getState());
     room.broadcast(this.io, "player_joined", {
       player: player.toJSON(),
+      hostId: room.hostId,
       players: room.players.map((p) => p.toJSON()),
+      spectators: room.spectators.map((p) => p.toJSON()),
     });
     console.log(`${data.name} joined room ${data.roomId}`);
   }
@@ -92,53 +201,7 @@ class MessageHandler {
     const room = this.getRoomBySocket(socket);
     if (!room) return;
 
-    const removed = room.removePlayer(socket.id);
-
-    // If room is empty, delete it
-    if (room.players.length === 0) {
-      // Clean up any running timers
-      if (room.game && room.game.timer) {
-        clearInterval(room.game.timer);
-      }
-      if (room._wordSelectionTimeout) {
-        clearTimeout(room._wordSelectionTimeout);
-      }
-      if (room._wordSelectionCountdown) {
-        clearInterval(room._wordSelectionCountdown);
-      }
-      this.rooms.delete(room.id);
-      console.log(`Room ${room.id} deleted (empty)`);
-      return;
-    }
-
-    // If removed player was the host, assign new host
-    if (removed && room.hostId === socket.id) {
-      room.hostId = room.players[0].id;
-    }
-
-    room.broadcast(this.io, "player_left", {
-      playerId: socket.id,
-      players: room.players.map((p) => p.toJSON()),
-    });
-
-    // If game is in progress and not enough players, end the game
-    if (room.phase === "drawing" || room.phase === "word_selection") {
-      if (room.players.length < 2) {
-        this.endGame(room);
-      } else if (removed && removed.isDrawing) {
-        // If the drawer left, end the current round and move on
-        if (room.game && room.game.timer) {
-          clearInterval(room.game.timer);
-        }
-        if (room._wordSelectionTimeout) {
-          clearTimeout(room._wordSelectionTimeout);
-        }
-        if (room._wordSelectionCountdown) {
-          clearInterval(room._wordSelectionCountdown);
-        }
-        this.endRound(room);
-      }
-    }
+    this.removeSocketFromRoom(socket, room);
 
     console.log(`Player ${socket.id} disconnected from room ${room.id}`);
   }
@@ -146,13 +209,16 @@ class MessageHandler {
   // ─── Game Flow ─────────────────────────────────────────────
 
   onStartGame(socket, data) {
-    const room = this.getRoomBySocket(socket);
+    const room = this.getRoomBySocket(socket, data?.roomId);
     if (!room) return;
 
     if (!room.isHost(socket.id)) return;
 
     if (room.players.length < 2) {
-      socket.emit("error", { message: "Need at least 2 players" });
+      socket.emit("error", {
+        message: "Need at least 2 players",
+        room: room.getState(),
+      });
       return;
     }
 
@@ -321,7 +387,9 @@ class MessageHandler {
 
     setTimeout(() => {
       // Guard: room or game may have been cleaned up during the timeout
-      if (!room.game) return;
+      if (!room.game || !this.rooms.has(room.id) || room.players.length < 2) {
+        return;
+      }
 
       room.game.nextTurn();
 
@@ -334,11 +402,7 @@ class MessageHandler {
   }
 
   endGame(room) {
-    // Clean up timer
-    if (room.game && room.game.timer) {
-      clearInterval(room.game.timer);
-      room.game.timer = null;
-    }
+    this.clearRoomTimers(room);
 
     room.phase = "game_over";
 

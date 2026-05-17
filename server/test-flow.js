@@ -7,7 +7,7 @@
  */
 const { io: ioClient } = require("socket.io-client");
 
-const URL = "http://localhost:4000";
+const URL = process.env.TEST_URL || "http://localhost:4000";
 let roomId = null;
 
 function connect(name) {
@@ -44,7 +44,7 @@ async function main() {
   console.log(`[P1] player_joined received, players:`, pjData.players.length);
 
   // --- Host starts game ---
-  p1.emit("start_game", {});
+  p1.emit("start_game", { roomId });
 
   // Both should receive round_start
   const rs1 = await once(p1, "round_start");

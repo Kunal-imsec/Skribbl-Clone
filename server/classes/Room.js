@@ -5,8 +5,10 @@ class Room {
     // Generate 6-char uppercase code from uuid
     this.id = crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
     this.hostId = hostId;
+    const maxPlayers = Number(settings.maxPlayers) || 8;
+
     this.settings = {
-      maxPlayers: settings.maxPlayers || 8,
+      maxPlayers: Math.max(2, maxPlayers),
       rounds: settings.rounds || 3,
       drawTime: settings.drawTime || 80,
       wordCount: settings.wordCount || 3,
