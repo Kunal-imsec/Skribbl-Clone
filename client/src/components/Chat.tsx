@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { ChatMessage } from '../types';
+import socket from '../socket';
 
 interface Props {
   messages: ChatMessage[];
@@ -42,18 +43,20 @@ const Chat: React.FC<Props> = ({ messages, onSendGuess, onSendChat, isDrawer, ph
 
   return (
     <div className="chat-container">
-      <div className="chat-header">Chat</div>
+      <div className="chat-header">CHAT 💬</div>
       <div className="chat-messages">
         {messages.map((msg, i) => {
-          let cls = 'chat-msg';
-          if (msg.isCorrect) cls += ' correct';
-          else if (msg.isSystem) cls += ' system';
-          else if (msg.isGuess) cls += ' guess';
+          const isSelf = msg.playerId === socket.id;
+          let cls = 'chat-msg msg-bubble';
+          if (msg.isCorrect) cls += ' msg-correct correct';
+          else if (msg.isSystem) cls += ' msg-system system';
+          else cls += isSelf ? ' msg-self' : ' msg-other';
+          if (msg.isGuess) cls += ' guess';
 
           return (
             <div key={i} className={cls}>
               {msg.isSystem || msg.isCorrect ? (
-                msg.text
+                msg.isCorrect ? `🎉 ${msg.text}` : msg.text
               ) : (
                 <>
                   <span className="sender">{msg.playerName}: </span>
@@ -67,14 +70,15 @@ const Chat: React.FC<Props> = ({ messages, onSendGuess, onSendChat, isDrawer, ph
       </div>
       <div className="chat-input-area">
         <input
+          className="input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKey}
           placeholder={placeholder}
           disabled={inputDisabled}
         />
-        <button className="btn btn-primary btn-sm" onClick={handleSend} disabled={inputDisabled}>
-          Send
+        <button className="btn btn-accent btn-sm" onClick={handleSend} disabled={inputDisabled}>
+          ✈️
         </button>
       </div>
     </div>

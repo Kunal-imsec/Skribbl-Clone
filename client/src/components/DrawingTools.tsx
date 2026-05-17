@@ -29,8 +29,9 @@ const DrawingTools: React.FC<Props> = ({
           <div
             key={c}
             className={`color-swatch ${color === c ? 'active' : ''}`}
-            style={{ backgroundColor: c, border: c === '#ffffff' ? '2px solid var(--border)' : undefined }}
+            style={{ backgroundColor: c }}
             onClick={() => setColor(c)}
+            title={c}
           />
         ))}
       </div>
@@ -59,14 +60,14 @@ const DrawingTools: React.FC<Props> = ({
       <div className="tool-divider" />
 
       <div className="tool-buttons">
-        <button className="btn-icon" onClick={() => setColor('#ffffff')} title="Eraser">
+        <button className="btn-icon" onClick={onClear} title="Clear">
           🧹
         </button>
         <button className="btn-icon" onClick={onUndo} title="Undo">
-          ↩
+          ↩️
         </button>
-        <button className="btn-icon" onClick={onClear} title="Clear">
-          🗑
+        <button className="btn-icon" onClick={() => setColor('#ffffff')} title="Eraser">
+          ⬜
         </button>
       </div>
     </div>

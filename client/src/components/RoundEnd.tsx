@@ -11,6 +11,7 @@ interface Props {
 const RoundEnd: React.FC<Props> = ({ word, scores, strokeHistory }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [countdown, setCountdown] = useState(5);
+  const [animatedScores, setAnimatedScores] = useState<Record<string, number>>({});
 
   // Replay animation
   useEffect(() => {
@@ -49,15 +50,32 @@ const RoundEnd: React.FC<Props> = ({ word, scores, strokeHistory }) => {
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    let tick = 0;
+    const steps = 24;
+    setAnimatedScores(Object.fromEntries(scores.map(p => [p.id, 0])));
+
+    const t = setInterval(() => {
+      tick++;
+      const progress = Math.min(tick / steps, 1);
+      setAnimatedScores(Object.fromEntries(
+        scores.map(p => [p.id, Math.round(p.score * progress)])
+      ));
+      if (progress >= 1) clearInterval(t);
+    }, 30);
+
+    return () => clearInterval(t);
+  }, [scores]);
+
   return (
     <div className="overlay-screen">
-      <div className="overlay-card">
-        <h1>Round Over!</h1>
+      <div className="card overlay-card animate-bounce-in">
+        <h1 className="round-title">ROUND OVER! 🎨</h1>
         <div className="word-reveal">
-          <div className="label">The word was</div>
+          <div className="label">The word was...</div>
           <div className="word">{word}</div>
         </div>
-        <div className="replay-canvas">
+        <div className="card replay-canvas">
           <canvas ref={canvasRef} width={400} height={250} />
         </div>
         <table className="scores-table">
@@ -66,11 +84,11 @@ const RoundEnd: React.FC<Props> = ({ word, scores, strokeHistory }) => {
           </thead>
           <tbody>
             {scores.map((p, i) => (
-              <tr key={p.id}>
-                <td className="rank">{i + 1}</td>
+              <tr key={p.id} className={i === 0 ? 'top-scorer' : ''}>
+                <td className="rank">{i === 0 ? '👑' : i + 1}</td>
                 <td><AvatarDisplay avatar={p.avatar} name={p.name} size={28} /></td>
                 <td>{p.name}</td>
-                <td style={{ fontWeight: 700, color: 'var(--accent-light)' }}>{p.score}</td>
+                <td className="score-cell">{animatedScores[p.id] ?? p.score}</td>
               </tr>
             ))}
           </tbody>

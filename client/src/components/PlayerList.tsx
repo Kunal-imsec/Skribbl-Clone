@@ -20,13 +20,14 @@ const PlayerList: React.FC<Props> = ({
 
   return (
     <div className="player-list">
-      <h3>Players ({players.length})</h3>
+      <h3>PLAYERS</h3>
       {players.map((p, i) => (
         <div
           key={p.id}
-          className={`player-item ${p.isDrawing ? 'is-drawing' : ''} ${p.hasGuessed ? 'has-guessed' : ''}`}
+          className={`player-item animate-bounce-in ${p.isDrawing ? 'is-drawing animate-pulse-glow' : ''} ${p.hasGuessed ? 'has-guessed' : ''}`}
+          style={{ animationDelay: `${i * 45}ms` }}
         >
-          <AvatarDisplay avatar={p.avatar} name={p.name} size={32} />
+          <AvatarDisplay avatar={p.avatar} name={p.name} size={36} />
           <div className="player-info">
             <div className="name">
               {p.name}
@@ -35,7 +36,7 @@ const PlayerList: React.FC<Props> = ({
             </div>
           </div>
           <div className="player-status">
-            {p.isDrawing ? '🖊️' : p.hasGuessed ? '✅' : ''}
+            {p.isDrawing ? '✏️' : p.hasGuessed ? '✅' : ''}
           </div>
           <div className="player-score">{p.score}</div>
           <div className="player-actions">
@@ -51,9 +52,9 @@ const PlayerList: React.FC<Props> = ({
 
       {spectators.length > 0 && (
         <>
-          <h3 style={{ marginTop: 16 }}>Spectators ({spectators.length})</h3>
+          <h3 className="spectators-heading">👁 Spectators</h3>
           {spectators.map((s) => (
-            <div key={s.id} className="player-item">
+            <div key={s.id} className="player-item animate-bounce-in">
               <AvatarDisplay avatar={s.avatar} name={s.name} size={28} />
               <div className="player-info">
                 <div className="name">{s.name} <span className="tag">(Spectator)</span></div>

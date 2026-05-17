@@ -32,14 +32,15 @@ const WordSelector: React.FC<Props> = ({ wordOptions, onSelect }) => {
 
   return (
     <div className="word-selector-overlay">
-      <div className="word-selector-card">
-        <h2>Choose a word to draw!</h2>
-        <div className="countdown">You have {timeLeft}s to pick</div>
+      <div className="card word-selector-card animate-bounce-in">
+        <h2 className="title">PICK A WORD! ✏️</h2>
+        <div className={`countdown ${timeLeft < 3 ? 'animate-shake' : ''}`}>{timeLeft}</div>
         <div className="word-options">
-          {wordOptions.map((word) => (
+          {wordOptions.map((word, index) => (
             <button
               key={word}
-              className="word-option"
+              className="card word-option animate-pop"
+              style={{ animationDelay: `${index * 100}ms` }}
               onClick={() => handleSelect(word)}
             >
               {word}

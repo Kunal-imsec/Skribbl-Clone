@@ -267,9 +267,9 @@ function App() {
     const drawTime = room.settings.drawTime;
 
     return (
-      <div className="game-layout">
+      <div className="game-layout page-bg game-bg">
         {/* Left sidebar */}
-        <div className="game-sidebar-left">
+        <div className="game-sidebar-left card">
           <PlayerList
             players={room.players}
             spectators={room.spectators}
@@ -283,15 +283,15 @@ function App() {
 
         {/* Center */}
         <div className="game-center">
-          <div className="game-top-bar">
-            <div className="round-badge">Round {round}</div>
-            <Timer timeRemaining={timeRemaining} drawTime={drawTime} />
+          <div className="game-top-bar card">
+            <div className="round-badge">ROUND {round}/{room.settings.rounds}</div>
             <HintDisplay
               hint={currentHint}
               phase={room.phase}
               isDrawer={isDrawer}
               currentWord={currentWord}
             />
+            <Timer timeRemaining={timeRemaining} drawTime={drawTime} />
           </div>
 
           <div className="canvas-area">
@@ -330,7 +330,7 @@ function App() {
         </div>
 
         {/* Right sidebar */}
-        <div className="game-sidebar-right">
+        <div className="game-sidebar-right card">
           <Chat
             messages={messages}
             onSendGuess={handleGuess}

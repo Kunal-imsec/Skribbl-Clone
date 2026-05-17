@@ -139,7 +139,7 @@ const Canvas: React.FC<Props> = ({
   }, [undoStrokeHistory, redrawAll]);
 
   return (
-    <div className="canvas-wrapper">
+    <div className="canvas-wrapper card">
       <canvas
         ref={canvasRef}
         width={CANVAS_W}
